@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Vale Verde Estoque Diario: controle o estoque de verduras e legumes no celular."
+    />
+    <meta name="theme-color" content="#2f6b3f" />
+    <title>Vale Verde | Estoque Diario</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <div class="background-orb background-orb-left"></div>
+    <div class="background-orb background-orb-right"></div>
+
+    <main class="app-shell">
+      <header class="hero reveal">
+        <div class="brand">
+          <div class="brand-mark">VV</div>
+          <div>
+            <p class="eyebrow">Estoque Diario</p>
+            <h1>Vale Verde</h1>
+          </div>
+        </div>
+
+        <p class="hero-copy">
+          Registre o estoque do dia, acompanhe o mes atual e mantenha sua
+          operacao mais organizada no celular.
+        </p>
+
+        <section class="hero-grid">
+          <article class="hero-card">
+            <span class="hero-label">Hoje</span>
+            <strong id="today-label">--</strong>
+          </article>
+
+          <article class="hero-card">
+            <span class="hero-label">Mes atual</span>
+            <strong id="month-info-label">--</strong>
+          </article>
+
+          <article class="hero-card">
+            <span class="hero-label">Dias restantes</span>
+            <strong id="remaining-days-label">--</strong>
+          </article>
+        </section>
+      </header>
+
+      <section class="panel reveal">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Calendario inteligente</p>
+            <h2 id="selected-date-label">--</h2>
+          </div>
+
+          <div class="calendar-actions">
+            <button
+              type="button"
+              class="ghost-button"
+              id="previous-month-button"
+              aria-label="Mes anterior"
+            >
+              Mes anterior
+            </button>
+            <button
+              type="button"
+              class="ghost-button"
+              id="next-month-button"
+              aria-label="Proximo mes"
+            >
+              Proximo mes
+            </button>
+          </div>
+        </div>
+
+        <div class="pill-row">
+          <span class="pill" id="month-pill">--</span>
+          <span class="pill" id="days-in-month-pill">--</span>
+          <span class="pill" id="month-progress-pill">--</span>
+        </div>
+
+        <div class="calendar-strip" id="calendar-strip" aria-live="polite"></div>
+      </section>
+
+      <section class="content-grid">
+        <div class="content-stack">
+          <section class="panel reveal">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Novo registro</p>
+                <h2>Adicionar produto ao estoque do dia</h2>
+              </div>
+
+              <div class="inline-actions">
+                <button
+                  type="button"
+                  class="ghost-button"
+                  id="copy-yesterday-button"
+                >
+                  Copiar ontem
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button"
+                  id="export-button"
+                >
+                  Exportar JSON
+                </button>
+              </div>
+            </div>
+
+            <form id="stock-form" class="stock-form">
+              <label class="field">
+                <span>Produto</span>
+                <input
+                  id="product-name"
+                  name="productName"
+                  type="text"
+                  placeholder="Ex.: Tomate"
+                  autocomplete="off"
+                  required
+                />
+              </label>
+
+              <label class="field">
+                <span>Categoria</span>
+                <select id="product-category" name="productCategory">
+                  <option value="Verdura">Verdura</option>
+                  <option value="Legume" selected>Legume</option>
+                  <option value="Fruta">Fruta</option>
+                  <option value="Outros">Outros</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Quantidade</span>
+                <input
+                  id="product-quantity"
+                  name="productQuantity"
+                  type="number"
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </label>
+
+              <label class="field">
+                <span>Unidade</span>
+                <select id="product-unit" name="productUnit">
+                  <option value="kg" selected>kg</option>
+                  <option value="caixa">caixa</option>
+                  <option value="maco">maco</option>
+                  <option value="unidade">unidade</option>
+                  <option value="bandeja">bandeja</option>
+                </select>
+              </label>
+
+              <label class="field field-wide">
+                <span>Responsavel</span>
+                <input
+                  id="operator-name"
+                  name="operatorName"
+                  type="text"
+                  placeholder="Ex.: Pedro ou Equipe Expedicao"
+                  autocomplete="off"
+                />
+              </label>
+
+              <button type="submit" class="primary-button field-wide">
+                Salvar no estoque diario
+              </button>
+            </form>
+          </section>
+
+          <section class="panel panel-accent reveal">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Entrada rapida</p>
+                <h2>Anotar varios produtos de uma vez</h2>
+              </div>
+            </div>
+
+            <p class="panel-copy">
+              Escreva uma linha por item, por exemplo:
+              <strong>tomate 40 kg</strong> ou <strong>alface 18 macos</strong>.
+            </p>
+
+            <form id="quick-entry-form" class="quick-entry-form">
+              <label class="field field-wide">
+                <span>Lista rapida</span>
+                <textarea
+                  id="quick-entry-text"
+                  name="quickEntryText"
+                  rows="5"
+                  placeholder="tomate 40 kg&#10;alface 18 macos&#10;cenoura 25 kg"
+                ></textarea>
+              </label>
+
+              <button type="submit" class="secondary-button">
+                Interpretar e adicionar
+              </button>
+            </form>
+          </section>
+
+          <section class="panel reveal">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Estoque do dia</p>
+                <h2 id="day-list-title">Produtos registrados</h2>
+              </div>
+            </div>
+
+            <div id="day-stock-list" class="stock-list" aria-live="polite"></div>
+          </section>
+        </div>
+
+        <aside class="content-stack">
+          <section class="panel reveal">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Resumo</p>
+                <h2>Painel rapido</h2>
+              </div>
+            </div>
+
+            <div class="stats-grid">
+              <article class="stat-card">
+                <span>Produtos hoje</span>
+                <strong id="today-products-count">0</strong>
+              </article>
+
+              <article class="stat-card">
+                <span>Quantidade total</span>
+                <strong id="today-total-quantity">0</strong>
+              </article>
+
+              <article class="stat-card">
+                <span>Dias preenchidos</span>
+                <strong id="month-filled-days">0</strong>
+              </article>
+
+              <article class="stat-card">
+                <span>Categoria mais usada</span>
+                <strong id="top-category">--</strong>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel reveal">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Historico mensal</p>
+                <h2>Movimento do mes</h2>
+              </div>
+            </div>
+
+            <div id="month-overview" class="month-overview"></div>
+          </section>
+
+          <section class="panel reveal">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">IA e proximo passo</p>
+                <h2>Como usar OpenAI do jeito certo</h2>
+              </div>
+            </div>
+
+            <p class="panel-copy">
+              Datas, mes atual e quantidade de dias do mes devem ser calculadas
+              no proprio app. A OpenAI entra melhor para interpretar texto ou
+              audio, responder perguntas sobre o estoque e gerar resumos.
+            </p>
+
+            <ul class="feature-list">
+              <li>Interpretar lista falada ou digitada e transformar em itens.</li>
+              <li>Responder perguntas como "o que esta acabando esta semana?".</li>
+              <li>Gerar resumo diario para a equipe ou para a diretoria.</li>
+            </ul>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>

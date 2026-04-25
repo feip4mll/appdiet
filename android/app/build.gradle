@@ -1,0 +1,38 @@
+plugins {
+  id "com.android.application"
+}
+
+android {
+  namespace "com.valeverde.estoque"
+  compileSdk 36
+
+  defaultConfig {
+    applicationId "com.valeverde.estoque"
+    minSdk 26
+    targetSdk 36
+    versionCode 1
+    versionName "1.0.0"
+
+    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  buildFeatures {
+    buildConfig true
+  }
+}
+
+dependencies {
+  implementation "androidx.appcompat:appcompat:1.7.0"
+}

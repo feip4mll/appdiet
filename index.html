@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Prime Diet - app para acompanhar dieta e refeicoes do dia."
+    />
+    <meta name="theme-color" content="#171a20" />
+    <title>Prime Diet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="phone-frame" id="screen-auth">
+        <header class="brand-header center-text">
+          <p class="eyebrow">Nutricao Inteligente</p>
+          <h1>Prime Diet</h1>
+          <p>Seu diario de refeicoes com foco em resultado e constancia.</p>
+        </header>
+
+        <div class="tab-toggle">
+          <button class="tab-button is-active" id="show-login" type="button">
+            Entrar
+          </button>
+          <button class="tab-button" id="show-register" type="button">
+            Criar conta
+          </button>
+        </div>
+
+        <form class="form-card" id="login-form">
+          <label for="login-email">Email</label>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            placeholder="seuemail@exemplo.com"
+            required
+          />
+
+          <label for="login-password">Senha</label>
+          <input
+            id="login-password"
+            name="password"
+            type="password"
+            placeholder="Digite sua senha"
+            required
+          />
+
+          <button class="primary-button" type="submit">Entrar no Prime</button>
+        </form>
+
+        <form class="form-card is-hidden" id="register-form">
+          <label for="register-name">Nome</label>
+          <input
+            id="register-name"
+            name="name"
+            type="text"
+            placeholder="Seu nome"
+            required
+          />
+
+          <label for="register-email">Email</label>
+          <input
+            id="register-email"
+            name="email"
+            type="email"
+            placeholder="seuemail@exemplo.com"
+            required
+          />
+
+          <label for="register-password">Senha</label>
+          <input
+            id="register-password"
+            name="password"
+            type="password"
+            minlength="4"
+            placeholder="Minimo de 4 caracteres"
+            required
+          />
+
+          <button class="primary-button" type="submit">Comecar agora</button>
+        </form>
+
+        <p class="feedback" id="auth-feedback"></p>
+      </section>
+
+      <section class="phone-frame is-hidden" id="screen-home">
+        <header class="top-line center-text">
+          <button
+            class="ghost-button small logout-float"
+            id="logout-button"
+            type="button"
+          >
+            Sair
+          </button>
+          <div class="full-width">
+            <p class="screen-kicker">Painel Diario</p>
+            <h2>Resumo de Hoje</h2>
+          </div>
+        </header>
+        <p class="screen-date" id="home-date"></p>
+
+        <section id="area-panel" class="home-panel">
+          <article class="meter-card">
+            <p>Calorias</p>
+            <strong id="calories-total">0 / 2000</strong>
+            <small class="meter-helper">Meta base diaria para manter consistencia.</small>
+            <div class="meter-inline">
+              <input
+                id="calorie-goal-input"
+                type="number"
+                min="800"
+                step="50"
+                placeholder="Meta kcal"
+              />
+              <button class="ghost-button small" id="save-goal-button" type="button">
+                Salvar meta
+              </button>
+            </div>
+            <progress id="calories-progress" max="2000" value="0"></progress>
+          </article>
+
+          <article class="meter-card">
+            <p>Hidratacao</p>
+            <div class="water-controls">
+              <strong id="water-total">1.5L</strong>
+              <div class="meter-inline">
+                <input
+                  id="water-ml-input"
+                  type="number"
+                  min="0"
+                  step="50"
+                  placeholder="ml atual"
+                />
+                <button class="ghost-button small" id="save-water-button" type="button">
+                  Atualizar
+                </button>
+              </div>
+            </div>
+            <div class="quick-add-row">
+              <button class="ghost-button small" id="water-add-250" type="button">
+                +250ml
+              </button>
+              <button class="ghost-button small" id="water-add-500" type="button">
+                +500ml
+              </button>
+              <button class="ghost-button small" id="water-add-750" type="button">
+                +750ml
+              </button>
+            </div>
+          </article>
+
+          <article class="meal-list">
+            <h3>Refeicoes do dia</h3>
+            <p class="section-helper">Registre tudo para receber orientacoes mais precisas.</p>
+            <ul id="meal-checklist"></ul>
+          </article>
+
+          <article class="ai-feedback-card">
+            <div class="ai-feedback-head">
+              <h3>Feedback IA</h3>
+              <button class="ghost-button small" id="ai-feedback-button" type="button">
+                Gerar
+              </button>
+            </div>
+            <p id="ai-feedback-output">
+              Toque em "Gerar" para receber insights rapidos das refeicoes de hoje.
+            </p>
+          </article>
+
+          <button class="fab-button" id="go-meal-button" type="button">+</button>
+        </section>
+
+        <section id="activities-panel" class="home-panel is-hidden">
+          <article class="meter-card">
+            <p>Historico</p>
+            <strong>Atividades por dia</strong>
+            <small class="meter-helper">Consulte apenas hoje e dias passados.</small>
+            <div class="meter-inline">
+              <input id="history-date-input" type="date" />
+              <button class="ghost-button small" id="load-history-button" type="button">
+                Ver dia
+              </button>
+            </div>
+          </article>
+
+          <article class="history-summary-grid">
+            <div class="summary-tile">
+              <span>Calorias</span>
+              <strong id="history-total-calories">0 kcal</strong>
+            </div>
+            <div class="summary-tile">
+              <span>Meta</span>
+              <strong id="history-goal-balance">0 kcal</strong>
+            </div>
+            <div class="summary-tile">
+              <span>Agua</span>
+              <strong id="history-water-total">0 ml</strong>
+            </div>
+            <div class="summary-tile">
+              <span>Refeicoes</span>
+              <strong id="history-meal-count">0</strong>
+            </div>
+          </article>
+
+          <article class="meal-list">
+            <h3>Registros do dia</h3>
+            <p class="section-helper" id="history-label">Selecione uma data para ver o resumo.</p>
+            <ul id="history-meal-list"></ul>
+          </article>
+        </section>
+
+        <nav class="bottom-tabs" aria-label="Navegacao inferior">
+          <button class="tab-nav is-active" id="tab-area" type="button">Area</button>
+          <button class="tab-nav" id="tab-activities" type="button">Atividades</button>
+        </nav>
+      </section>
+
+      <section class="phone-frame is-hidden" id="screen-meal">
+        <header class="top-line center-text">
+          <button class="ghost-button small" id="back-home-button" type="button">
+            Voltar
+          </button>
+          <h2 id="meal-screen-title">Nova Refeicao</h2>
+        </header>
+
+        <form id="meal-form" class="form-card">
+          <input id="meal-id" name="mealId" type="hidden" />
+
+          <label for="meal-name">Nome</label>
+          <input
+            id="meal-name"
+            name="name"
+            type="text"
+            placeholder="Ex: Frango com arroz"
+            required
+          />
+
+          <label for="meal-calories">Calorias</label>
+          <input
+            id="meal-calories"
+            name="calories"
+            type="number"
+            min="1"
+            placeholder="Ex: 520"
+            required
+          />
+
+          <label for="meal-type">Tipo</label>
+          <select id="meal-type" name="mealType" required>
+            <option value="Cafe da manha">Cafe da manha</option>
+            <option value="Almoco">Almoco</option>
+            <option value="Jantar">Jantar</option>
+            <option value="Lanche">Lanche</option>
+          </select>
+
+          <label for="meal-photo">Foto (opcional)</label>
+          <div class="photo-actions">
+            <button class="ghost-button" id="open-gallery-button" type="button">
+              Galeria
+            </button>
+            <button class="ghost-button" id="open-camera-button" type="button">
+              Camera
+            </button>
+          </div>
+          <input
+            id="meal-photo-gallery"
+            class="visually-hidden"
+            name="photoGallery"
+            type="file"
+            accept="image/*"
+          />
+          <input
+            id="meal-photo-camera"
+            class="visually-hidden"
+            name="photoCamera"
+            type="file"
+            accept="image/*"
+            capture="environment"
+          />
+          <img
+            id="meal-photo-preview"
+            class="meal-photo-preview is-hidden"
+            alt="Preview da refeicao"
+          />
+
+          <button class="primary-button" id="meal-submit-button" type="submit">
+            Salvar
+          </button>
+          <button
+            class="ghost-button is-hidden"
+            id="cancel-edit-button"
+            type="button"
+          >
+            Cancelar edicao
+          </button>
+        </form>
+
+        <p class="feedback" id="meal-feedback"></p>
+      </section>
+    </main>
+  </body>
+</html>

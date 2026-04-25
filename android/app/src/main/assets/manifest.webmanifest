@@ -1,0 +1,17 @@
+{
+  "name": "Vale Verde Estoque Diario",
+  "short_name": "Vale Verde",
+  "description": "Controle diario de estoque de verduras e legumes.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f0df",
+  "theme_color": "#2f6b3f",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
