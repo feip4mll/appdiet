@@ -7,6 +7,7 @@ const { DatabaseSync } = require("node:sqlite");
 const PORT = Number(process.env.PORT || 8080);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const EXTERNAL_AUTH_BASE_URL = "https://dummyjson.com";
 const PROJECT_ROOT = __dirname;
 const DATA_DIR = path.join(PROJECT_ROOT, "data");
 const DATABASE_PATH = path.join(DATA_DIR, "prime-diet.db");
@@ -109,13 +110,46 @@ async function handleApi(request, response, requestUrl) {
       const body = await readJsonBody(request);
       const email = cleanText(body.email).toLowerCase();
       const password = String(body.password || "");
-      const user = db
+
+      let user = db
         .prepare("SELECT id, name, email, password_hash FROM users WHERE email = ?")
         .get(email);
 
       if (!user || user.password_hash !== hashPassword(password)) {
-        sendJson(response, 401, { error: "Credenciais invalidas." });
-        return;
+        const externalAuthUser = await verifyExternalLoginWithDummyJson({
+          email,
+          password,
+        });
+
+        if (!externalAuthUser) {
+          sendJson(response, 401, { error: "Credenciais invalidas." });
+          return;
+        }
+
+        const externalName = cleanText(
+          `${externalAuthUser.firstName || ""} ${externalAuthUser.lastName || ""}`,
+        );
+        const resolvedName = externalName || cleanText(externalAuthUser.username) || "Usuario";
+        const passwordHash = hashPassword(password);
+
+        if (!user) {
+          db.prepare(
+            `
+              INSERT INTO users (name, email, password_hash)
+              VALUES (?, ?, ?)
+            `,
+          ).run(resolvedName, email, passwordHash);
+        } else {
+          db.prepare("UPDATE users SET name = ?, password_hash = ? WHERE id = ?").run(
+            resolvedName,
+            passwordHash,
+            user.id,
+          );
+        }
+
+        user = db
+          .prepare("SELECT id, name, email, password_hash FROM users WHERE email = ?")
+          .get(email);
       }
 
       const token = crypto.randomUUID();
@@ -684,4 +718,53 @@ function pickVariant(seed, variants) {
   }
   const selectedIndex = variants.length ? hash % variants.length : 0;
   return variants[selectedIndex];
+}
+
+async function verifyExternalLoginWithDummyJson({ email, password }) {
+  if (!email || !password) {
+    return null;
+  }
+
+  try {
+    const searchResponse = await fetch(
+      `${EXTERNAL_AUTH_BASE_URL}/users/search?q=${encodeURIComponent(email)}`,
+    );
+    if (!searchResponse.ok) {
+      return null;
+    }
+
+    const searchData = await searchResponse.json();
+    const users = Array.isArray(searchData.users) ? searchData.users : [];
+    const matchedUser = users.find(
+      (userItem) =>
+        userItem &&
+        typeof userItem.email === "string" &&
+        userItem.email.toLowerCase() === email.toLowerCase(),
+    );
+    if (!matchedUser || !matchedUser.username) {
+      return null;
+    }
+
+    const loginResponse = await fetch(`${EXTERNAL_AUTH_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: String(matchedUser.username),
+        password,
+        expiresInMins: 30,
+      }),
+    });
+    if (!loginResponse.ok) {
+      return null;
+    }
+
+    const loginData = await loginResponse.json();
+    if (!loginData || !loginData.accessToken) {
+      return null;
+    }
+
+    return loginData;
+  } catch {
+    return null;
+  }
 }
