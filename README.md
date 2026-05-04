@@ -1,42 +1,43 @@
 # Prime Diet
 
-Checkpoint inicial do app para dieta/academia com:
-- Navegacao entre `Login/Cadastro`, `Home` e `Nova Refeicao`
-- Banco local `SQLite`
-- API local com autenticacao estruturada (base para proximo checkpoint de IA)
+Este repositorio contem:
+- App Flutter em `prime_diet_flutter/` (projeto principal para checkpoint)
+- Backend/versao web legada em `server.js`, `index.html`, `app.js`
 
-## Requisitos
+## Como rodar (Flutter - correto para avaliacao)
 
-- Node.js 24+ (com `node:sqlite`)
+Rode os comandos **dentro da subpasta** `prime_diet_flutter`:
 
-## Como rodar
+```bash
+cd prime_diet_flutter
+flutter pub get
+flutter run -d chrome
+```
 
-1. No terminal, entre na pasta do projeto.
-2. Rode:
+## Backend IA (opcional)
 
-```powershell
-$env:OPENAI_API_KEY="sua-chave-openai"
-# opcional:
-# $env:OPENAI_MODEL="gpt-4.1-mini"
+Se quiser usar feedback via backend local:
+
+```bash
+cd ..
 node server.js
 ```
 
-3. Abra [http://localhost:8080](http://localhost:8080)
+## IA local (Ollama)
 
-## Banco de dados local
+Para feedback de IA local, a maquina precisa ter o **Ollama** instalado e ativo.
 
-Arquivo SQLite criado automaticamente em:
-- `data/prime-diet.db`
+Passos rapidos:
 
-Tabelas:
-- `users`
-- `meals`
+```bash
+ollama --version
+ollama pull llama3.1:8b
+ollama run llama3.1:8b
+```
 
-## Endpoints principais
+Com o Ollama ativo, o backend usa IA local automaticamente.
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/meals/today`
-- `POST /api/meals`
-- `GET /api/ai/checkpoint` (placeholder para integracao IA)
-- `POST /api/ai/meal-feedback` (feedback das refeicoes via OpenAI)
+## Importante
+
+Se rodar Flutter na pasta raiz (`New project`) pode dar erro de avaliacao.
+Para checkpoint, use sempre `cd prime_diet_flutter` antes dos comandos Flutter.

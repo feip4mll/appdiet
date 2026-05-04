@@ -4,9 +4,14 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
+loadEnvFile(path.join(__dirname, ".env"));
+
 const PORT = Number(process.env.PORT || 8080);
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.1:8b";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+const OPENROUTER_MODEL =
+  process.env.OPENROUTER_MODEL || "google/gemma-2-9b-it:free";
 const EXTERNAL_AUTH_BASE_URL = "https://dummyjson.com";
 const PROJECT_ROOT = __dirname;
 const DATA_DIR = path.join(PROJECT_ROOT, "data");
@@ -54,6 +59,13 @@ const contentTypes = {
 const server = http.createServer(async (request, response) => {
   if (!request.url) {
     sendJson(response, 400, { error: "Requisicao invalida." });
+    return;
+  }
+
+  setCorsHeaders(response);
+  if (request.method === "OPTIONS") {
+    response.writeHead(204);
+    response.end();
     return;
   }
 
@@ -329,24 +341,35 @@ async function handleApi(request, response, requestUrl) {
 
     if (request.method === "POST" && pathname === "/api/ai/meal-feedback") {
       const userId = getUserIdFromAuth(request);
-      if (!userId) {
-        sendJson(response, 401, { error: "Sessao invalida." });
-        return;
-      }
-
       const body = await readJsonBody(request);
-      const waterLiters = Number(body.waterLiters || 0);
-      const today = getTodayLocalDateString();
-      const meals = db
-        .prepare(
-          `
-            SELECT name, calories, meal_type
-            FROM meals
-            WHERE user_id = ? AND date(created_at) = ?
-            ORDER BY created_at ASC
-          `,
-        )
-        .all(userId, today);
+      const waterLiters = Number(body.waterLiters || (Number(body.waterMl || 0) / 1000) || 0);
+      const userMessage = cleanText(body.userMessage);
+      const currentFeedback = cleanText(body.currentFeedback);
+      let meals = [];
+
+      if (userId) {
+        const today = getTodayLocalDateString();
+        meals = db
+          .prepare(
+            `
+              SELECT name, calories, meal_type
+              FROM meals
+              WHERE user_id = ? AND date(created_at) = ?
+              ORDER BY created_at ASC
+            `,
+          )
+          .all(userId, today);
+      } else if (Array.isArray(body.meals)) {
+        meals = body.meals
+          .map((meal) => ({
+            name: cleanText(meal && meal.name),
+            calories: Number(meal && meal.calories),
+            meal_type: cleanText((meal && (meal.meal_type || meal.mealType || meal.type)) || ""),
+          }))
+          .filter(
+            (meal) => meal.name && Number.isFinite(meal.calories) && meal.calories > 0 && meal.meal_type,
+          );
+      }
 
       if (!meals.length) {
         sendJson(response, 400, {
@@ -355,18 +378,35 @@ async function handleApi(request, response, requestUrl) {
         return;
       }
 
-      if (!OPENAI_API_KEY) {
-        const feedback = getLocalMealFeedback({ meals, waterLiters });
-        sendJson(response, 200, { feedback, source: "local" });
-        return;
-      }
-
       try {
-        const feedback = await getMealFeedbackFromOpenAI({ meals, waterLiters });
-        sendJson(response, 200, { feedback, source: "openai" });
+        const feedback = await getMealFeedbackFromOllama({
+          meals,
+          waterLiters,
+          userMessage,
+          currentFeedback,
+        });
+        sendJson(response, 200, { feedback, source: "ollama" });
       } catch {
-        const feedback = getLocalMealFeedback({ meals, waterLiters });
-        sendJson(response, 200, { feedback, source: "local" });
+        if (!OPENROUTER_API_KEY) {
+          const feedback = getLocalMealFeedback({ meals, waterLiters });
+          sendJson(response, 200, { feedback, source: "local" });
+          return;
+        }
+        try {
+          const feedback = await getMealFeedbackFromOpenRouter({
+            meals,
+            waterLiters,
+            userMessage,
+            currentFeedback,
+          });
+          sendJson(response, 200, { feedback, source: "openrouter" });
+        } catch (error) {
+          const message =
+            error && typeof error.message === "string"
+              ? error.message
+              : "Falha ao gerar feedback com OpenRouter.";
+          sendJson(response, 502, { error: message, source: "openrouter" });
+        }
       }
       return;
     }
@@ -394,6 +434,28 @@ function hashPassword(password) {
 
 function cleanText(value) {
   return String(value || "").trim();
+}
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  const raw = fs.readFileSync(filePath, "utf8");
+  raw.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return;
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex <= 0) return;
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  });
 }
 
 function readJsonBody(request) {
@@ -446,11 +508,18 @@ function serveStaticFile(response, pathname) {
 
 function sendJson(response, statusCode, payload) {
   const body = JSON.stringify(payload);
+  setCorsHeaders(response);
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
   });
   response.end(body);
+}
+
+function setCorsHeaders(response) {
+  response.setHeader("Access-Control-Allow-Origin", "*");
+  response.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 
 function getTodayLocalDateString() {
@@ -467,38 +536,122 @@ function isValidIsoDate(value) {
   return !Number.isNaN(date.getTime());
 }
 
-async function getMealFeedbackFromOpenAI({ meals, waterLiters }) {
+async function getMealFeedbackFromOllama({
+  meals,
+  waterLiters,
+  userMessage = "",
+  currentFeedback = "",
+}) {
   const mealLines = meals
     .map((meal, index) => {
       return `${index + 1}. ${meal.meal_type}: ${meal.name} (${meal.calories} kcal)`;
     })
     .join("\n");
 
-  const prompt = [
-    "Voce e um assistente de saude e habitos alimentares para um app de dieta.",
-    "Analise as refeicoes de hoje e devolva um feedback curto em portugues do Brasil.",
+  const promptParts = [
+    "Voce e um assistente de dieta.",
+    "Gere APENAS um feedback escrito sobre as refeicoes do dia e o que melhorar na dieta.",
+    "Responda em portugues do Brasil, curto e objetivo.",
     "Formato obrigatorio:",
-    "1) Pontos positivos (1 a 2 linhas)",
-    "2) Pontos para melhorar (1 a 2 linhas)",
-    "3) Proximo passo pratico para hoje (1 linha)",
-    "Nao diagnostique doencas e nao substitua nutricionista.",
+    "1) O que esta bom nas refeicoes",
+    "2) O que melhorar nas refeicoes da dieta",
+    "3) Sugestao pratica para a proxima refeicao",
+    "Sem introducao longa, sem diagnostico medico, sem assuntos fora da dieta.",
     "",
     "Dados do usuario hoje:",
     `- Agua: ${waterLiters > 0 ? `${waterLiters}L` : "nao informado"}`,
     "- Refeicoes:",
     mealLines,
-  ].join("\n");
+  ];
+  if (currentFeedback) {
+    promptParts.push("", "Feedback anterior da IA:", currentFeedback);
+  }
+  if (userMessage) {
+    promptParts.push(
+      "",
+      `Usuario respondeu: ${userMessage}`,
+      "Agora refine o feedback considerando essa resposta do usuario.",
+    );
+  }
+  const prompt = promptParts.join("\n");
 
-  const apiResponse = await fetch("https://api.openai.com/v1/responses", {
+  const apiResponse = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: OPENAI_MODEL,
-      input: prompt,
-      max_output_tokens: 300,
+      model: OLLAMA_MODEL,
+      prompt,
+      stream: false,
+      options: {
+        temperature: 0.4,
+      },
+    }),
+  });
+
+  if (!apiResponse.ok) {
+    throw new Error(`Falha ao chamar Ollama (${apiResponse.status}).`);
+  }
+
+  const data = await apiResponse.json();
+  const output = data && typeof data.response === "string" ? data.response.trim() : "";
+  if (!output) {
+    throw new Error("Resposta vazia da IA local.");
+  }
+  return output;
+}
+
+async function getMealFeedbackFromOpenRouter({
+  meals,
+  waterLiters,
+  userMessage = "",
+  currentFeedback = "",
+}) {
+  const mealLines = meals
+    .map((meal, index) => {
+      return `${index + 1}. ${meal.meal_type}: ${meal.name} (${meal.calories} kcal)`;
+    })
+    .join("\n");
+
+  const promptParts = [
+    "Voce e um assistente de dieta.",
+    "Gere APENAS um feedback escrito sobre as refeicoes do dia e o que melhorar na dieta.",
+    "Responda em portugues do Brasil, curto e objetivo.",
+    "Formato obrigatorio:",
+    "1) O que esta bom nas refeicoes",
+    "2) O que melhorar nas refeicoes da dieta",
+    "3) Sugestao pratica para a proxima refeicao",
+    "Sem introducao longa, sem diagnostico medico, sem assuntos fora da dieta.",
+    "",
+    "Dados do usuario hoje:",
+    `- Agua: ${waterLiters > 0 ? `${waterLiters}L` : "nao informado"}`,
+    "- Refeicoes:",
+    mealLines,
+  ];
+  if (currentFeedback) {
+    promptParts.push("", "Feedback anterior da IA:", currentFeedback);
+  }
+  if (userMessage) {
+    promptParts.push(
+      "",
+      `Usuario respondeu: ${userMessage}`,
+      "Agora refine o feedback considerando essa resposta do usuario.",
+    );
+  }
+  const prompt = promptParts.join("\n");
+
+  const apiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+      max_tokens: 220,
     }),
   });
 
@@ -512,11 +665,11 @@ async function getMealFeedbackFromOpenAI({ meals, waterLiters }) {
           : "";
     } catch {}
     const suffix = details ? ` ${details}` : "";
-    throw new Error(`Falha ao chamar OpenAI (${apiResponse.status}).${suffix}`);
+    throw new Error(`Falha ao chamar OpenRouter (${apiResponse.status}).${suffix}`);
   }
 
   const data = await apiResponse.json();
-  const output = readResponseText(data);
+  const output = readOpenRouterText(data);
   if (!output) {
     throw new Error("Resposta vazia da IA.");
   }
@@ -524,28 +677,22 @@ async function getMealFeedbackFromOpenAI({ meals, waterLiters }) {
   return output.trim();
 }
 
-function readResponseText(data) {
-  if (typeof data.output_text === "string" && data.output_text.trim()) {
-    return data.output_text;
-  }
-
-  if (!Array.isArray(data.output)) {
+function readOpenRouterText(data) {
+  if (!data || !Array.isArray(data.choices)) {
     return "";
   }
 
-  const textChunks = [];
-  data.output.forEach((item) => {
-    if (!Array.isArray(item.content)) {
-      return;
-    }
-    item.content.forEach((contentItem) => {
-      if (contentItem && typeof contentItem.text === "string") {
-        textChunks.push(contentItem.text);
-      }
-    });
-  });
+  for (const choice of data.choices) {
+    const text =
+      choice &&
+      choice.message &&
+      typeof choice.message.content === "string"
+        ? choice.message.content.trim()
+        : "";
+    if (text) return text;
+  }
 
-  return textChunks.join("\n").trim();
+  return "";
 }
 
 function getLocalMealFeedback({ meals, waterLiters }) {
